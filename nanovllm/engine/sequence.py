@@ -15,7 +15,7 @@ class Sequence:
     block_size = 256
     counter = count()
 
-    def __init__(self, token_ids: list[int], sampling_params = SamplingParams()):
+    def __init__(self, token_ids: list[int], sampling_params:SamplingParams = SamplingParams()):
         self.seq_id = next(Sequence.counter)
         self.status = SequenceStatus.WAITING
         self.token_ids = copy(token_ids)
@@ -33,7 +33,7 @@ class Sequence:
     def __len__(self):
         return self.num_tokens
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int|slice):
         return self.token_ids[key]
 
     @property
@@ -54,13 +54,14 @@ class Sequence:
 
     @property
     def num_blocks(self):
-        return (self.num_tokens + self.block_size - 1) // self.block_size
+        return (self.num_tokens - 1) // self.block_size + 1
 
     @property
     def last_block_num_tokens(self):
         return self.num_tokens - (self.num_blocks - 1) * self.block_size
 
-    def block(self, i):
+    def block(self, i:int) -> list[int]:
+        # Return the token IDs in the requested block.
         assert 0 <= i < self.num_blocks
         return self.token_ids[i*self.block_size: (i+1)*self.block_size]
 
@@ -71,13 +72,20 @@ class Sequence:
 
     def __getstate__(self):
         last_state = self.last_token if not self.is_prefill else self.token_ids
-        return (self.num_tokens, self.num_prompt_tokens, self.num_cached_tokens, self.num_scheduled_tokens, self.block_table, last_state)
+        return (
+            self.num_tokens,
+            self.num_prompt_tokens,
+            self.num_cached_tokens,
+            self.num_scheduled_tokens,
+            self.block_table,
+            last_state
+        )
 
     def __setstate__(self, state):
         self.num_tokens, self.num_prompt_tokens, self.num_cached_tokens, self.num_scheduled_tokens, self.block_table, last_state = state
         if isinstance(last_state, list):
             self.token_ids = last_state
             self.last_token = self.token_ids[-1]
-        else:
+        else:   # type(last_stat == int)
             self.token_ids = []
             self.last_token = last_state
